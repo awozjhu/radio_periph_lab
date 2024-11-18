@@ -113,7 +113,6 @@ architecture arch_imp of full_radio_v1_0_S00_AXI is
 	signal slv_reg1	:std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
 	signal slv_reg2	:std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
 	signal slv_reg3	:std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
-	signal clk_counter	:unsigned(C_S_AXI_DATA_WIDTH-1 downto 0);
 	signal slv_reg_rden	: std_logic;
 	signal slv_reg_wren	: std_logic;
 	signal reg_data_out	:std_logic_vector(C_S_AXI_DATA_WIDTH-1 downto 0);
@@ -130,30 +129,6 @@ COMPONENT dds_compiler_0
     m_axis_data_tdata : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
   );
     END COMPONENT;
-
--- User Signals and Components
-signal I_data_fir1           : std_logic_vector(39 downto 0);
-signal I_data_fir2           : std_logic_vector(63 downto 0);
-signal I_dvalid_fir1         : std_logic;
-signal I_dvalid_fir2         : std_logic;
-
-signal Q_data_fir1           : std_logic_vector(39 downto 0);
-signal Q_data_fir2           : std_logic_vector(63 downto 0);
-signal Q_dvalid_fir1         : std_logic;
-signal Q_dvalid_fir2         : std_logic;
-
-signal s_axis_phase_tvalid : std_logic;
-signal s_axis_phase_tdata  : std_logic_vector(31 downto 0);
-
-signal m_axis_data_tvalid  : std_logic;
-signal m_axis_tdata_phase  : std_logic_vector(15 downto 0);
-
-signal m_axis_data_complx_tvalid  : std_logic;
-signal m_axis_tdata_complx        : std_logic_vector(31 downto 0);
-
-signal dvalid_complx_mix          : std_logic;
-signal data_complx_mix            : std_logic_vector(31 downto 0);
-
 
 begin
 	-- I/O Connections assignments
@@ -254,7 +229,7 @@ begin
 	      slv_reg0 <= (others => '0');
 	      slv_reg1 <= (others => '0');
 	      slv_reg2 <= (others => '0');
-	    --   slv_reg3 <= (others => '0');
+	      slv_reg3 <= (others => '0');
 	    else
 	      loc_addr := axi_awaddr(ADDR_LSB + OPT_MEM_ADDR_BITS downto ADDR_LSB);
 	      if (slv_reg_wren = '1') then
@@ -283,19 +258,19 @@ begin
 	                slv_reg2(byte_index*8+7 downto byte_index*8) <= S_AXI_WDATA(byte_index*8+7 downto byte_index*8);
 	              end if;
 	            end loop;
-	        --   when b"11" =>
-	        --     for byte_index in 0 to (C_S_AXI_DATA_WIDTH/8-1) loop
-	        --       if ( S_AXI_WSTRB(byte_index) = '1' ) then
-	        --         -- Respective byte enables are asserted as per write strobes                   
-	        --         -- slave registor 3
-	        --         slv_reg3(byte_index*8+7 downto byte_index*8) <= S_AXI_WDATA(byte_index*8+7 downto byte_index*8);
-	        --       end if;
-	        --     end loop;
+	          when b"11" =>
+	            for byte_index in 0 to (C_S_AXI_DATA_WIDTH/8-1) loop
+	              if ( S_AXI_WSTRB(byte_index) = '1' ) then
+	                -- Respective byte enables are asserted as per write strobes                   
+	                -- slave registor 3
+	                slv_reg3(byte_index*8+7 downto byte_index*8) <= S_AXI_WDATA(byte_index*8+7 downto byte_index*8);
+	              end if;
+	            end loop;
 	          when others =>
 	            slv_reg0 <= slv_reg0;
 	            slv_reg1 <= slv_reg1;
 	            slv_reg2 <= slv_reg2;
-	            -- slv_reg3 <= slv_reg3;
+	            slv_reg3 <= slv_reg3;
 	        end case;
 	      end if;
 	    end if;
@@ -392,8 +367,7 @@ begin
 	      when b"00" =>
 	        reg_data_out <= slv_reg0;
 	      when b"01" =>
-	        -- reg_data_out <= x"DEADBEEF";
-	        reg_data_out <= slv_reg1;
+	        reg_data_out <= x"DEADBEEF";
 	      when b"10" =>
 	        reg_data_out <= slv_reg2;
 	      when b"11" =>
@@ -424,123 +398,15 @@ begin
 
 	-- Add user logic here
 
---   dds_comp0 : dds_compiler_0
---   PORT MAP (
---     aclk => s_axi_aclk,
---     aresetn => '1',
---     s_axis_phase_tvalid => '1',
---     s_axis_phase_tdata => slv_reg0,
---     m_axis_data_tvalid => m_axis_tvalid,
---     m_axis_data_tdata => m_axis_tdata
---   );
-
--- Free-running clock counter 
-
-
-process( S_AXI_ACLK ) is
-begin
-	if (rising_edge (S_AXI_ACLK)) then
-		if ( S_AXI_ARESETN = '0' ) then
-			clk_counter  <= (others => '0');
-		else
-			clk_counter <= clk_counter + 1;
-			slv_reg3    <= std_logic_vector(clk_counter);
-		end if;
-	end if;
-end process;
-
-
----------------------------------------------------------
--- Real Data ("fake ADC")
----------------------------------------------------------
-dds_comp0 : entity work.dds_compiler_0
-port map (
-    aclk                => s_axi_aclk,
-    aresetn             => slv_reg2(0), -- based on test_radio.c 
+your_instance_name : dds_compiler_0
+  PORT MAP (
+    aclk => s_axi_aclk,
+    aresetn => '1',
     s_axis_phase_tvalid => '1',
-    s_axis_phase_tdata  => slv_reg0,
-    m_axis_data_tvalid  => m_axis_data_tvalid,
-    m_axis_data_tdata   => m_axis_tdata_phase
-);
-
----------------------------------------------------------
--- Mixer
----------------------------------------------------------
-dds_comp1 : entity work.dds_compiler_1
-port map (
-  aclk                => s_axi_aclk,
-  aresetn             => slv_reg2(0), -- based on test_radio.c 
-  s_axis_phase_tvalid => '1',
-  s_axis_phase_tdata  => slv_reg1,
-  m_axis_data_tvalid  => m_axis_data_complx_tvalid,
-  m_axis_data_tdata   => m_axis_tdata_complx
-);
-
----------------------------------------------------------
--- Complex Multiply
----------------------------------------------------------
-
-complex_multi : entity work.cmpy_0
-port map (                                      
-  aclk               => s_axi_aclk,                   
-  s_axis_a_tvalid    => m_axis_data_tvalid,                 
-  s_axis_a_tdata     => (x"0000" & m_axis_tdata_phase), 
-  s_axis_b_tvalid    => m_axis_data_complx_tvalid,          
-  s_axis_b_tdata     => m_axis_tdata_complx, 
-  m_axis_dout_tvalid => dvalid_complx_mix,                   
-  m_axis_dout_tdata  => data_complx_mix             
-);
-
----------------------------------------------------------
--- Real component (I) filters
----------------------------------------------------------
-fir_1_real_data : entity work.fir_compiler_1
-port map (
-  aclk               => s_axi_aclk,
-  s_axis_data_tvalid => dvalid_complx_mix,
-  s_axis_data_tready => open,
-  s_axis_data_tdata  => data_complx_mix(15 downto 0),
-  m_axis_data_tvalid => I_dvalid_fir1,
-  m_axis_data_tdata  => I_data_fir1
-);
- 
-fir_2_real_data : entity work.fir_compiler_2              
-port map (                                      
-  aclk               => s_axi_aclk,                   
-  s_axis_data_tvalid => I_dvalid_fir1,
-  s_axis_data_tready => open,                   
-  s_axis_data_tdata  => I_data_fir1, 
-  m_axis_data_tvalid => I_dvalid_fir2,                   
-  m_axis_data_tdata  => I_data_fir2             
- );
-
-
----------------------------------------------------------
--- Imaginary component (Q) filters
----------------------------------------------------------
-fir_1_imag_data : entity work.fir_compiler_1
-port map (
-  aclk               => s_axi_aclk,
-  s_axis_data_tvalid => dvalid_complx_mix,
-  s_axis_data_tready => open,
-  s_axis_data_tdata  => data_complx_mix(31 downto 16),
-  m_axis_data_tvalid => Q_dvalid_fir1,
-  m_axis_data_tdata  => Q_data_fir1
-);
- 
-fir_2_imag_data : entity work.fir_compiler_2   
-port map (                                      
-  aclk               => s_axi_aclk,                   
-  s_axis_data_tvalid => Q_dvalid_fir1,
-  s_axis_data_tready => open,                   
-  s_axis_data_tdata  => Q_data_fir1, 
-  m_axis_data_tvalid => Q_dvalid_fir2,                   
-  m_axis_data_tdata  => Q_data_fir2             
- );
-
--- assign outputs 
-m_axis_tdata  <= (I_data_fir2(56 downto 41) & Q_data_fir2(56 downto 41));
-m_axis_tvalid <= '1';
+    s_axis_phase_tdata => slv_reg0,
+    m_axis_data_tvalid => m_axis_tvalid,
+    m_axis_data_tdata => m_axis_tdata
+  );
 
 
 	-- User logic ends
